@@ -16,18 +16,22 @@ LoRa_E32 e32ttl100(&Serial2, 15, 19, 21);
 HardwareSerial myserial(1);
 NMEAGPS gps;
 
+// 2.5sec interval
+unsigned long msbefore = 0;
+
 // device name
-const String name = "device1";
+const String name = "device2";
 // ap credential
-const char* ap = "device1";
-const char* pass = "zhoeuwu";
+const char* ap = "device2";
+const char* pass = "zhoedtwqua";
 
 ESP32WebServer server(80);
 
 // "inbox"
 std::vector<String> messagein;
-// relayed message
+// relaying
 std::set<String> relayedmessage;
+std::set<String> relayingmessage;
 
 // duplication test
 bool isDuplicated(String str) {
@@ -84,7 +88,10 @@ String encode(DynamicJsonDocument doc) {
 void sendviaLora(String data) {
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, data);
-  ResponseStatus rs = e32ttl100.sendMessage(encode(doc)); 
+  String shortenedmessage = encode(doc);
+  // for not duplicating itself
+  isDuplicated(shortenedmessage);
+  ResponseStatus rs = e32ttl100.sendMessage(shortenedmessage); 
   Serial.print("Sent via LoRa message (status): ");
   Serial.print(data);
   Serial.println(rs.getResponseDescription());
@@ -104,8 +111,7 @@ int handleMessageIn() {
       messagein.push_back(rc.data);
       Serial.println(rc.data);
       Serial.println(rc.status.getResponseDescription());
-      // relaying the message to other devices (range increased)
-      sendviaLora(rc.data);
+      relayingmessage.insert(rc.data);
     }
   }
   return 1;
@@ -182,6 +188,19 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
+  // handle interval
+  if (millis() - msbefore == 2500) {
+    // do sth 
+    // relaying the message to other devices (range increased)
+    std::set<String>::iterator it = relayingmessage.begin();
+    for (; it != relayingmessage.end(); ++it) {
+        sendviaLora(*it); delay(500);
+      }
+    relayingmessage.erase(relayingmessage.begin(), relayingmessage.end());
+    // update new "before point"
+    msbefore = millis();
+  }
+
   // handle connected clients
   server.handleClient();
 
