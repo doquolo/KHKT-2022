@@ -17,7 +17,7 @@ HardwareSerial myserial(1);
 NMEAGPS gps;
 
 // device name
-const String name = "device2";
+const String name = "device1";
 // ap credential
 const char* ap = "device1";
 const char* pass = "zhoeuwu";
@@ -26,7 +26,16 @@ ESP32WebServer server(80);
 
 // "inbox"
 std::vector<String> messagein;
+// relayed message
+std::set<String> relayedmessage;
 
+// duplication test
+bool isDuplicated(String str) {
+    std::set<String>::size_type before = relayedmessage.size();
+    relayedmessage.insert(str);
+    if (before == relayedmessage.size()) return false;
+    else return true;
+}
 
 // GPS
 // current gps info
@@ -82,18 +91,24 @@ void sendviaLora(String data) {
 }
 
 // handle incoming message from lora module
-void handleMessageIn() {
+int handleMessageIn() {
   ResponseContainer rc = e32ttl100.receiveMessage();
   // if sth goes wrong
   if (rc.status.code != 1) Serial.println(rc.status.getResponseDescription());
   else {
     // process message
     if (rc.data != "ping") {
+      // check whether the message has been received or not
+      if (!isDuplicated(rc.data)) return 0;
+      // if not then...
       messagein.push_back(rc.data);
       Serial.println(rc.data);
       Serial.println(rc.status.getResponseDescription());
+      // relaying the message to other devices (range increased)
+      sendviaLora(rc.data);
     }
   }
+  return 1;
 }
 
 // sending message
@@ -181,15 +196,15 @@ void loop() {
     currentGPSinfo["long"] = fix.longitude();
     currentGPSinfo["sat"] = fix.satellites;
     currentGPSinfo["time"] = fix.dateTime_ms();
-    Serial.print(fix.status);
-    Serial.print("-");
-    Serial.print(fix.latitude());
-    Serial.print("-");
-    Serial.print(fix.longitude());
-    Serial.print("-");
-    Serial.print(fix.satellites);
-    Serial.print("-");
-    Serial.println(fix.dateTime_ms());
+    // Serial.print(fix.status);
+    // Serial.print("-");
+    // Serial.print(fix.latitude());
+    // Serial.print("-");
+    // Serial.print(fix.longitude());
+    // Serial.print("-");
+    // Serial.print(fix.satellites);
+    // Serial.print("-");
+    // Serial.println(fix.dateTime_ms());
   }
   // idk
   delay(1);
