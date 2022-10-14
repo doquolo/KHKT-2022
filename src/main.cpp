@@ -20,9 +20,9 @@ NMEAGPS gps;
 unsigned long msbefore = 0;
 
 // device name
-const String name = "device2";
+// const String name = "device2";
 // ap credential
-const char* ap = "device2";
+const char* ap = "device1";
 const char* pass = "zhoedtwqua";
 
 ESP32WebServer server(80);
@@ -85,15 +85,18 @@ String encode(DynamicJsonDocument doc) {
 }
 
 // lora comm
-void sendviaLora(String data) {
-  DynamicJsonDocument doc(1024);
-  deserializeJson(doc, data);
-  String shortenedmessage = encode(doc);
+void sendviaLora(String data, bool isEncoded) {
+  String shortenedmessage = data;
+  if (!isEncoded) {
+    DynamicJsonDocument doc(1024);
+    deserializeJson(doc, data);
+    shortenedmessage = encode(doc);
+  }
   // for not duplicating itself
-  isDuplicated(shortenedmessage);
+  relayedmessage.insert(shortenedmessage);
   ResponseStatus rs = e32ttl100.sendMessage(shortenedmessage); 
   Serial.print("Sent via LoRa message (status): ");
-  Serial.print(data);
+  Serial.print(shortenedmessage);
   Serial.println(rs.getResponseDescription());
 }
 
@@ -104,7 +107,7 @@ int handleMessageIn() {
   if (rc.status.code != 1) Serial.println(rc.status.getResponseDescription());
   else {
     // process message
-    if (rc.data != "ping") {
+    if (rc.data != "ping" || rc.data != "null|null|null") {
       // check whether the message has been received or not
       if (!isDuplicated(rc.data)) return 0;
       // if not then...
@@ -122,7 +125,7 @@ void handleMessageOut(String json) {
     json.trim();
     Serial.print("Received message: ");
     Serial.println(json);
-    sendviaLora(json);
+    sendviaLora(json, false);
 }
 
 // updating new message
@@ -188,22 +191,8 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  // handle interval
-  if (millis() - msbefore == 2500) {
-    // do sth 
-    // relaying the message to other devices (range increased)
-    std::set<String>::iterator it = relayingmessage.begin();
-    for (; it != relayingmessage.end(); ++it) {
-        sendviaLora(*it); delay(500);
-      }
-    relayingmessage.erase(relayingmessage.begin(), relayingmessage.end());
-    // update new "before point"
-    msbefore = millis();
-  }
-
   // handle connected clients
   server.handleClient();
-
   // handle incoming message from lora module
   if (e32ttl100.available()>1) {
     Serial.println("Incoming lora message!");
@@ -224,6 +213,23 @@ void loop() {
     // Serial.print(fix.satellites);
     // Serial.print("-");
     // Serial.println(fix.dateTime_ms());
+  }
+  // handle interval
+  if (millis() - msbefore >= 2500) {
+    Serial.println("2500ms passed!");
+    // do sth 
+    // relaying the message to other devices (range increase)
+    if (relayingmessage.size() != 0) {
+      Serial.println("Start relaying message to other devices...");
+      std::set<String>::iterator it = relayingmessage.begin();
+      for (; it != relayingmessage.end(); ++it) {
+          sendviaLora(*it, true); delay(250);
+        }
+      relayingmessage.erase(relayingmessage.begin(), relayingmessage.end());
+      Serial.println("Relaying completed!");
+    }
+    // update new "before point"
+    msbefore = millis();
   }
   // idk
   delay(1);
