@@ -16,22 +16,22 @@ LoRa_E32 e32ttl100(&Serial2, 15, 19, 21);
 HardwareSerial myserial(1);
 NMEAGPS gps;
 
-// 2.5sec interval
+// 10sec interval
 unsigned long msbefore = 0;
 
 // device name
 // const String name = "device2";
 // ap credential
-const char* ap = "device1";
+const char* ap = "device2";
 const char* pass = "zhoedtwqua";
 
 ESP32WebServer server(80);
 
 // "inbox"
 std::vector<String> messagein;
+
 // relaying
 std::set<String> relayedmessage;
-std::set<String> relayingmessage;
 
 // duplication test
 bool isDuplicated(String str) {
@@ -86,17 +86,17 @@ String encode(DynamicJsonDocument doc) {
 
 // lora comm
 void sendviaLora(String data, bool isEncoded) {
-  String shortenedmessage = data;
+  String encodedmessage = data;
   if (!isEncoded) {
     DynamicJsonDocument doc(1024);
     deserializeJson(doc, data);
-    shortenedmessage = encode(doc);
+    encodedmessage = encode(doc);
   }
   // for not duplicating itself
-  relayedmessage.insert(shortenedmessage);
-  ResponseStatus rs = e32ttl100.sendMessage(shortenedmessage); 
+  relayedmessage.insert(encodedmessage);
+  ResponseStatus rs = e32ttl100.sendMessage(encodedmessage); 
   Serial.print("Sent via LoRa message (status): ");
-  Serial.print(shortenedmessage);
+  Serial.print(encodedmessage);
   Serial.println(rs.getResponseDescription());
 }
 
@@ -109,12 +109,13 @@ int handleMessageIn() {
     // process message
     if (rc.data != "ping" || rc.data != "null|null|null") {
       // check whether the message has been received or not
-      if (!isDuplicated(rc.data)) return 0;
-      // if not then...
-      messagein.push_back(rc.data);
-      Serial.println(rc.data);
-      Serial.println(rc.status.getResponseDescription());
-      relayingmessage.insert(rc.data);
+      if (isDuplicated(rc.data)) {
+        messagein.push_back(rc.data);
+        Serial.println(rc.data);
+        Serial.println(rc.status.getResponseDescription());
+      }
+      // if yes then... 
+      else Serial.println("dupicated!");
     }
   }
   return 1;
@@ -215,19 +216,9 @@ void loop() {
     // Serial.println(fix.dateTime_ms());
   }
   // handle interval
-  if (millis() - msbefore >= 2500) {
-    Serial.println("2500ms passed!");
-    // do sth 
-    // relaying the message to other devices (range increase)
-    if (relayingmessage.size() != 0) {
-      Serial.println("Start relaying message to other devices...");
-      std::set<String>::iterator it = relayingmessage.begin();
-      for (; it != relayingmessage.end(); ++it) {
-          sendviaLora(*it, true); delay(250);
-        }
-      relayingmessage.erase(relayingmessage.begin(), relayingmessage.end());
-      Serial.println("Relaying completed!");
-    }
+  if (millis() - msbefore >= 10000) {
+    relayedmessage.clear();
+    Serial.println("Cleared anti-repeated memory!");
     // update new "before point"
     msbefore = millis();
   }
