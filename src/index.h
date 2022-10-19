@@ -23,6 +23,7 @@ const char mainpage[] PROGMEM = R"=====(
             height: calc(100% / 1.75);
             overflow: scroll;
             flex-direction: column;
+            white-space: pre-line;
         }
         .typer {
             position: absolute;
@@ -74,6 +75,9 @@ const char mainpage[] PROGMEM = R"=====(
     </div>
     <div id="sent" class="message-container"></div>
     <div class="typer">
+        <div>
+            <input type="checkbox" id="enc" name="encrypt"><label for="encrypt">Encrypted?</label></input>
+        </div>
         <div class="tab">
             <button class="tablink" id="message" onclick="showMessbox()">Message</button>
             <button class="tablink" id="gps" onclick="showGPSbox()">GPS</button>
@@ -88,6 +92,23 @@ const char mainpage[] PROGMEM = R"=====(
         </div>
     </div>
     <script>
+        const encCB = document.querySelector('#enc');
+        encCB.addEventListener('click', () => {
+            if (encCB.checked) {
+                var encpass = prompt("Enter encryption password (16 characters): ");
+                while (encpass.length != 16) {
+                    var encpass = prompt("Re-enter encryption password (16 characters): ");
+                }
+                var xhr = new XMLHttpRequest();
+                var url = "/setpass";
+                xhr.open("POST", url, true);
+                xhr.setRequestHeader("Content-Type", "application/json");
+                var data = JSON.stringify({"pass": encpass});
+                xhr.send(data);
+            }
+        });
+    </script>
+    <script>
         const showMessbox = () => {
             document.querySelector("div.gps").style.display = "none";
             document.querySelector("form.message").style.display = "block";
@@ -98,7 +119,7 @@ const char mainpage[] PROGMEM = R"=====(
         }
     </script>
     <script>
-        var name = prompt("Enter username", "Ex: doquolo");
+        var name = prompt("Enter username");
         while (name == null || name == "") {
             name = prompt("Enter username before chatting!", "");
         }
@@ -131,7 +152,12 @@ const char mainpage[] PROGMEM = R"=====(
             var url = "/send";
             xhr.open("POST", url, true);
             xhr.setRequestHeader("Content-Type", "application/json");
-            var data = JSON.stringify({"m": `${currentgps["lat"]};${currentgps["long"]}`, "n": name, "t": "g"});
+            if (encCB.checked) {
+                var data = JSON.stringify({"m": `${currentgps["lat"]};${currentgps["long"]}`, "n": name, "t": "ge"});
+            }
+            else {
+                var data = JSON.stringify({"m": `${currentgps["lat"]};${currentgps["long"]}`, "n": name, "t": "g!"});
+            }
             xhr.send(data);
         }
     </script>
@@ -156,14 +182,14 @@ const char mainpage[] PROGMEM = R"=====(
                     // classify
                     switch (mess["t"]) {
                         case "m":
-                            div.innerText = mess["m"];
-                            div.title = "message - " + mess["n"];
+                            div.innerHTML = `<h5>${mess["n"]} (message)</h5>\n`;
+                            div.innerText += mess["m"];
                             break;
-                        case "g":
-                            // gps coor form: latN;longE Ex: 12,05N;127,30E
-                            var coor = mess["m"].split(";");
-                            div.innerText = `${coor[0]}N;${coor[1]}E`;
-                            div.title = "gps - " + mess["n"];
+                            case "g":
+                                // gps coor form: latN;longE Ex: 12,05N;127,30E
+                                var coor = mess["m"].split(";");
+                                div.innerHTML = `<h5>${mess["n"]} (gps)</h5>\n`;
+                                div.innerText += `${coor[0]}N;${coor[1]}E`;
                             // include a button to calculate distance using our gps coor
                             break;
                     }
@@ -192,7 +218,12 @@ const char mainpage[] PROGMEM = R"=====(
             var url = "/send";
             xhr.open("POST", url, true);
             xhr.setRequestHeader("Content-Type", "application/json");
-            var data = JSON.stringify({"m": text, "n": name, "t": "m"});
+            if (encCB.checked) {
+                var data = JSON.stringify({"m": text, "n": name, "t": "me"});
+            }
+            else {
+                var data = JSON.stringify({"m": text, "n": name, "t": "m!"});
+            }
             xhr.send(data);
         });
     </script>
