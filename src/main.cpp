@@ -6,6 +6,7 @@
 #include <bits/stdc++.h>
 #include <NMEAGPS.h>
 #include <HardwareSerial.h>
+#include <mbedtls/aes.h>
 
 #include "index.h"
 
@@ -39,6 +40,69 @@ bool isDuplicated(String str) {
     relayedmessage.insert(str);
     if (before == relayedmessage.size()) return false;
     else return true;
+}
+
+// encryption
+// convert func
+uint16_t hexstringtoint(std::string hex) {
+    unsigned int x;   
+    std::stringstream ss;
+    ss << std::hex << hex;
+    ss >> x;
+    return x;
+}
+
+// enc/dec func
+void encrypt(char * plainText, char * key, unsigned char * outputBuffer){
+
+  mbedtls_aes_context aes;
+
+  mbedtls_aes_init( &aes );
+  mbedtls_aes_setkey_enc( &aes, (const unsigned char*) key, strlen(key) * 8 );
+  mbedtls_aes_crypt_ecb( &aes, MBEDTLS_AES_ENCRYPT, (const unsigned char*)plainText, outputBuffer);
+  mbedtls_aes_free( &aes );
+}
+
+void decrypt(unsigned char * chipherText, char * key, unsigned char * outputBuffer){
+
+  mbedtls_aes_context aes;
+
+  mbedtls_aes_init( &aes );
+  mbedtls_aes_setkey_dec( &aes, (const unsigned char*) key, strlen(key) * 8 );
+  mbedtls_aes_crypt_ecb(&aes, MBEDTLS_AES_DECRYPT, (const unsigned char*)chipherText, outputBuffer);
+  mbedtls_aes_free( &aes );
+}
+
+// event handler
+String handleEnc(char * plaintext, char * key) {
+  unsigned char encbuffer[16];
+  encrypt(plaintext, key, encbuffer);
+  Serial.println("\nCiphered text:");
+  String temp;
+  for (int i = 0; i < 16; i++) {
+    char str[3];
+    sprintf(str, "%02x", (int)encbuffer[i]);
+    temp += String(str);
+  }
+  return temp;
+}
+
+String handleDec(char * enctext, char * key) {
+  unsigned char inpbuffer[16];
+  for (int i = 0; i < 32; i=i+2) {
+    std::string temp;
+    temp.push_back(enctext[i]); temp.push_back(enctext[i+1]);
+    inpbuffer[i/2] = hexstringtoint(temp);
+  }
+
+  unsigned char decbuffer[16];
+  decrypt(inpbuffer, key, decbuffer);
+  Serial.println("\nDeciphered text:");
+  String temp;
+  for (int i = 0; i < 16; i++) {
+    temp += String((char)decbuffer[i]);
+  }
+  return temp;
 }
 
 // GPS
