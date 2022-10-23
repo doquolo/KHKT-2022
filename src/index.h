@@ -68,6 +68,31 @@ const char mainpage[] PROGMEM = R"=====(
             }
         }
         </style>
+        <script>
+            const crypt = (salt, text) => {
+                const textToChars = (text) => text.split("").map((c) => c.charCodeAt(0));
+                const byteHex = (n) => ("0" + Number(n).toString(16)).substr(-2);
+                const applySaltToChar = (code) => textToChars(salt).reduce((a, b) => a ^ b, code);
+            
+                return text
+                .split("")
+                .map(textToChars)
+                .map(applySaltToChar)
+                .map(byteHex)
+                .join("");
+            };
+            
+            const decrypt = (salt, encoded) => {
+                const textToChars = (text) => text.split("").map((c) => c.charCodeAt(0));
+                const applySaltToChar = (code) => textToChars(salt).reduce((a, b) => a ^ b, code);
+                return encoded
+                    .match(/.{1,2}/g)
+                    .map((hex) => parseInt(hex, 16))
+                    .map(applySaltToChar)
+                    .map((charCode) => String.fromCharCode(charCode))
+                    .join("");
+            };
+        </script>
 </head>
 <body>
     <div class="h1">
@@ -92,19 +117,12 @@ const char mainpage[] PROGMEM = R"=====(
         </div>
     </div>
     <script>
+        var pass;
         const encCB = document.querySelector('#enc');
         encCB.addEventListener('click', () => {
             if (encCB.checked) {
-                var encpass = prompt("Enter encryption password (16 characters): ");
-                while (encpass.length != 16) {
-                    var encpass = prompt("Re-enter encryption password (16 characters): ");
-                }
-                var xhr = new XMLHttpRequest();
-                var url = "/setpass";
-                xhr.open("POST", url, true);
-                xhr.setRequestHeader("Content-Type", "application/json");
-                var data = JSON.stringify({"pass": encpass});
-                xhr.send(data);
+                var encpass = prompt("Enter encryption password: ");
+                pass = encpass;
             }
         });
     </script>
@@ -152,11 +170,14 @@ const char mainpage[] PROGMEM = R"=====(
             var url = "/send";
             xhr.open("POST", url, true);
             xhr.setRequestHeader("Content-Type", "application/json");
+            var content = `${currentgps["lat"]};${currentgps["long"]}`;
+            // encrypt
             if (encCB.checked) {
-                var data = JSON.stringify({"m": `${currentgps["lat"]};${currentgps["long"]}`, "n": name, "t": "ge"});
+                content = crypt(pass, content);
+                var data = JSON.stringify({"m": content, "n": name, "t": "ge"});
             }
             else {
-                var data = JSON.stringify({"m": `${currentgps["lat"]};${currentgps["long"]}`, "n": name, "t": "g!"});
+                var data = JSON.stringify({"m": content, "n": name, "t": "g!"});
             }
             xhr.send(data);
         }
@@ -179,17 +200,21 @@ const char mainpage[] PROGMEM = R"=====(
                     temp = mess;
                     const div = document.createElement("div");
                     div.className = "received";
+                    // decrypt
+                    if (mess["e"] == "e") {
+                        mess["m"] = decrypt(pass, mess["m"]);
+                    }
                     // classify
                     switch (mess["t"]) {
                         case "m":
                             div.innerHTML = `<h5>${mess["n"]} (message)</h5>\n`;
                             div.innerText += mess["m"];
                             break;
-                            case "g":
-                                // gps coor form: latN;longE Ex: 12,05N;127,30E
-                                var coor = mess["m"].split(";");
-                                div.innerHTML = `<h5>${mess["n"]} (gps)</h5>\n`;
-                                div.innerText += `${coor[0]}N;${coor[1]}E`;
+                        case "g":
+                            // gps coor form: latN;longE Ex: 12,05N;127,30E
+                            var coor = mess["m"].split(";");
+                            div.innerHTML = `<h5>${mess["n"]} (gps)</h5>\n`;
+                            div.innerText += `${coor[0]}N;${coor[1]}E`;
                             // include a button to calculate distance using our gps coor
                             break;
                     }
@@ -204,7 +229,7 @@ const char mainpage[] PROGMEM = R"=====(
     <script>
         const form = document.querySelector('#form');
         form.addEventListener("submit", ()=>{
-            const text = document.querySelector("#inp").value;
+            var text = document.querySelector("#inp").value;
             console.log(text);
             if (text.length >= 50) {alert("Content must be less than 50 characters!");return false;}
             if (text == "") {alert("Content Empty!");return false;}
@@ -218,7 +243,9 @@ const char mainpage[] PROGMEM = R"=====(
             var url = "/send";
             xhr.open("POST", url, true);
             xhr.setRequestHeader("Content-Type", "application/json");
+            // encrypt
             if (encCB.checked) {
+                text = crypt(pass, text);
                 var data = JSON.stringify({"m": text, "n": name, "t": "me"});
             }
             else {
