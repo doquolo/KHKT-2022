@@ -23,8 +23,11 @@ unsigned long msbefore = 0;
 // device name
 // const String name = "device2";
 // ap credential
-const char* ap = "device2";
+const char* ap = "device1";
 const char* pass = "zhoedtwqua";
+
+// password for encryption
+char * password; 
 
 ESP32WebServer server(80);
 
@@ -121,9 +124,10 @@ void handleGPS() {
 DynamicJsonDocument decode(String str) {
   String name = "";
   String content = "";
-  String type(str[str.length()-1]);
+  String type(str[str.length()-2]);
+  String isEncrypted(str[str.length()-1]);
   bool part1end = false;
-  for (int i = 0; i < (str.length())-2; i++) {
+  for (int i = 0; i < (str.length())-3; i++) {
     if (part1end) content += str[i];
     else {
       if (str[i] == 124) {
@@ -134,18 +138,34 @@ DynamicJsonDocument decode(String str) {
     }
   }  
   DynamicJsonDocument doc(1024);
+  // if encrypted message is received
+  if (isEncrypted == "e") {
+    // decrypt message using stored password
+    char * contentchararr;
+    content.toCharArray(contentchararr, content.length());
+    Serial.println("Start decryption!");
+    content = handleDec(contentchararr, password);
+  }
   doc["name"] = name;
   doc["content"] = content;
   doc["type"] = type;
+  doc["encrypted"] = isEncrypted;
   return doc;
 }
 
 String encode(DynamicJsonDocument doc) {
-  String name, content, type;
+  String name, contentstr, temptype, type, isEncrypted;
   name = doc["n"].as<String>();
-  content = doc["m"].as<String>();
-  type = doc["t"].as<String>();
-  return (name + "|" + content + "|" + type);
+  contentstr = doc["m"].as<String>();
+  temptype = doc["t"].as<String>();
+  type = temptype[0]; isEncrypted = temptype[1];
+  if (isEncrypted == "e") {
+    char * contentchar;
+    contentstr.toCharArray(contentchar, contentstr.length());
+    Serial.println("Start encryption!");
+    contentstr = handleEnc(contentchar, password);
+  }
+  return (name + "|" + contentstr + "|" + temptype);
 }
 
 // lora comm
@@ -251,6 +271,17 @@ void setup() {
   server.on("/update", handleUpdate);
   // handle gps request
   server.on("/gps", handleGPS);
+  // handle password for encryption
+  server.on("/setpass", HTTP_POST, []() {
+    StaticJsonDocument<200> json;
+    deserializeJson(json, server.arg("plain"));
+    String strpass = json["pass"];
+    char * strtochar;
+    strpass.toCharArray(strtochar, 16);
+    password = strtochar;
+    Serial.print("New encryption password setted! ");
+    Serial.println(password);
+  });
   server.begin();
 }
 
