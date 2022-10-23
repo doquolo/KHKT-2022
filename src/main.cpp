@@ -114,6 +114,9 @@ int handleMessageIn() {
     if (rc.data != "ping" || rc.data != "null|null|null") {
       // check whether the message has been received or not
       if (isDuplicated(rc.data)) {
+        // relaying message
+        sendviaLora(rc.data, true);
+        // continue like normal
         messagein.push_back(rc.data);
         Serial.println(rc.data);
         Serial.println(rc.status.getResponseDescription());
