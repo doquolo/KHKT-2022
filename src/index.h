@@ -161,6 +161,9 @@ const char mainpage[] PROGMEM = R"=====(
     </script>
     <script>
         var currentgps;
+        function calDistance(x1, y1, x2, y2) {
+            return (Math.acos(Math.cos(x2-x1) - Math.cos(x1)*Math.cos(x2) + Math.cos(x1)*Math.cos(x2)*Math.cos(y2-y1)) * 6371);
+        }
         const acquireGPS = () => {
             var xhr = new XMLHttpRequest();
             xhr.onreadystatechange = () => {
@@ -227,8 +230,7 @@ const char mainpage[] PROGMEM = R"=====(
                             // gps coor form: latN;longE Ex: 12,05N;127,30E
                             var coor = mess["m"].split(";");
                             div.innerHTML = `<h5>${mess["n"]} (gps)</h5>\n`;
-                            div.innerText += `${coor[0]}N;${coor[1]}E`;
-                            // include a button to calculate distance using our gps coor
+                            div.innerText += `${coor[0]}N;${coor[1]}E (${Math.round(calDistance(currentgps[lat], currentgps[lon], coor[0], coor[1]))}km from us)`;
                             break;
                     }
                     document.querySelector("#sent").append(div);
@@ -237,7 +239,7 @@ const char mainpage[] PROGMEM = R"=====(
             xhr.open('GET', "/update", true);
             xhr.send(null);
         }
-        setInterval(updateMessage, 500);
+        // setInterval(updateMessage, 500);
     </script>
     <script>
         const form = document.querySelector('#form');
