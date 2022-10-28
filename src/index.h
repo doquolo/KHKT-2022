@@ -101,7 +101,8 @@ const char mainpage[] PROGMEM = R"=====(
     <div id="sent" class="message-container"></div>
     <div class="typer">
         <div>
-            <input type="checkbox" id="enc" name="encrypt"><label for="encrypt">Encrypted?</label></input>
+            <input type="checkbox" id="enc" name="encrypt"><label for="encrypt">Encrypted?</label></input><br>
+            <input type="checkbox" id="rly" name="relay"><label for="relay">Enable relaying?</label></input>
         </div>
         <div class="tab">
             <button class="tablink" id="message" onclick="showMessbox()">Message</button>
@@ -116,6 +117,18 @@ const char mainpage[] PROGMEM = R"=====(
             <button id="sendgps" onclick="sendGPS()">Send</button>
         </div>
     </div>
+    <script>
+        const rlyCB =  document.querySelector('#rly');
+        rlyCB.addEventListener('click', () => {
+            // sending json
+            var xhr = new XMLHttpRequest();
+            var url = "/relay";
+            xhr.open("POST", url, true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            const data = JSON.stringify({"relay": (rlyCB.checked) ? "1" : "0"});
+            xhr.send(data);
+        });
+    </script> 
     <script>
         var pass;
         const encCB = document.querySelector('#enc');

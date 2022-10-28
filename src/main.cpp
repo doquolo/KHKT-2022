@@ -33,6 +33,7 @@ std::vector<String> messagein;
 
 // relaying
 std::set<String> relayedmessage;
+bool enableRelay = false;
 
 // duplication test
 bool isDuplicated(String str) {
@@ -114,8 +115,10 @@ int handleMessageIn() {
     if (rc.data != "ping" || rc.data != "null|null|null") {
       // check whether the message has been received or not
       if (isDuplicated(rc.data)) {
-        // relaying message
-        sendviaLora(rc.data, true);
+        if (enableRelay) {
+          // relaying message
+          sendviaLora(rc.data, true);
+        }
         // continue like normal
         messagein.push_back(rc.data);
         Serial.println(rc.data);
@@ -195,6 +198,12 @@ void setup() {
   server.on("/update", handleUpdate);
   // handle gps request
   server.on("/gps", handleGPS);
+  // handle enable/disable relay
+  server.on("/relay", []() {
+    StaticJsonDocument<100> state;
+    deserializeJson(state, server.arg("plain"));
+    enableRelay = (state["relay"].as<String>() == "1") ? true : false;
+  });
   server.begin();
 }
 
