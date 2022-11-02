@@ -239,7 +239,7 @@ const char mainpage[] PROGMEM = R"=====(
             xhr.open('GET', "/update", true);
             xhr.send(null);
         }
-        // setInterval(updateMessage, 500);
+        setInterval(updateMessage, 500);
     </script>
     <script>
         const form = document.querySelector('#form');

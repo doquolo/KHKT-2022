@@ -23,7 +23,7 @@ unsigned long msbefore = 0;
 // const String name = "device2";
 // ap credential
 const char* ap = "device1";
-const char* pass = "zhoedtwqua";
+const char* pass = "idkwhattosay";
 
 
 ESP32WebServer server(80);
