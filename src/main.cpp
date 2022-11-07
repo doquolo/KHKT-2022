@@ -9,7 +9,7 @@
 
 #include "index.h"
 
-// setting up lora device
+// setting up lora 
 LoRa_E32 e32ttl100(&Serial2, 15, 19, 21);
 
 // setting up gps
@@ -19,11 +19,9 @@ NMEAGPS gps;
 // 10sec interval
 unsigned long msbefore = 0;
 
-// device name
-// const String name = "device2";
 // ap credential
 const char* ap = "device1";
-const char* pass = "idkwhattosay";
+const char* pass = "matkhau1";
 
 
 ESP32WebServer server(80);
@@ -222,15 +220,6 @@ void loop() {
     currentGPSinfo["long"] = fix.longitude();
     currentGPSinfo["sat"] = fix.satellites;
     currentGPSinfo["time"] = fix.dateTime_ms();
-    // Serial.print(fix.status);
-    // Serial.print("-");
-    // Serial.print(fix.latitude());
-    // Serial.print("-");
-    // Serial.print(fix.longitude());
-    // Serial.print("-");
-    // Serial.print(fix.satellites);
-    // Serial.print("-");
-    // Serial.println(fix.dateTime_ms());
   }
   // handle interval
   if (millis() - msbefore >= 10000) {
@@ -239,6 +228,5 @@ void loop() {
     // update new "before point"
     msbefore = millis();
   }
-  // idk
   delay(1);
 }
