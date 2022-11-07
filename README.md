@@ -1,2 +1,2 @@
-# esp32-loracomm
-The underlying code used to run the hardware.
+# Dự án: Thiết bị trung gian truyền tin và mã hóa LoRa
+Đây là chương trình được sử dụng trên sản phẩm.
