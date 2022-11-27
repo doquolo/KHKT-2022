@@ -103,6 +103,7 @@ const char mainpage[] PROGMEM = R"=====(
         <div>
             <input type="checkbox" id="enc" name="encrypt"><label for="encrypt">Encrypted?</label></input><br>
             <input type="checkbox" id="rly" name="relay"><label for="relay">Enable relaying?</label></input>
+            <input type="checkbox" id="ctl" name="control"><label for="control">Command?</label></input>
         </div>
         <div class="tab">
             <button class="tablink" id="message" onclick="showMessbox()">Message</button>
@@ -161,9 +162,6 @@ const char mainpage[] PROGMEM = R"=====(
     </script>
     <script>
         var currentgps;
-        function calDistance(x1, y1, x2, y2) {
-            return (Math.acos(Math.cos(x2-x1) - Math.cos(x1)*Math.cos(x2) + Math.cos(x1)*Math.cos(x2)*Math.cos(y2-y1)) * 6371);
-        }
         const acquireGPS = () => {
             var xhr = new XMLHttpRequest();
             xhr.onreadystatechange = () => {
@@ -174,7 +172,9 @@ const char mainpage[] PROGMEM = R"=====(
                     catch (err) {
                         return true;
                     }
-                    currentgps = {lat:gps["lat"], long:gps["long"], sat:gps["sat"], time:gps["time"]};
+                    var lati = parseFloat(gps["lat"]);
+                    var longi = parseFloat(gps["long"]);
+                    currentgps = {"lat": lati, "long":longi, "sat":gps["sat"], "time":gps["time"]};
                     document.querySelector("#gpsloc").innerText = `Latitude: ${currentgps["lat"]}N; Longitude: ${currentgps["long"]}E`;
                 }   
             } 
@@ -186,7 +186,7 @@ const char mainpage[] PROGMEM = R"=====(
             var url = "/send";
             xhr.open("POST", url, true);
             xhr.setRequestHeader("Content-Type", "application/json");
-            var content = `${currentgps["lat"]};${currentgps["long"]}`;
+            var content = `${currentgps["lat"].toFixed(3)};${currentgps["long"].toFixed(3)}`;
             // encrypt
             if (encCB.checked) {
                 content = crypt(pass, content);
@@ -199,6 +199,9 @@ const char mainpage[] PROGMEM = R"=====(
         }
     </script>
     <script>
+        function calDistance(x1, y1, x2, y2) {
+            return (Math.acos(Math.cos(x2-x1) - Math.cos(x1)*Math.cos(x2) + Math.cos(x1)*Math.cos(x2)*Math.cos(y2-y1)) * 6371);
+        }   
         var temp;
         const updateMessage = () => {
             var xhr = new XMLHttpRequest();
@@ -230,7 +233,7 @@ const char mainpage[] PROGMEM = R"=====(
                             // gps coor form: latN;longE Ex: 12,05N;127,30E
                             var coor = mess["m"].split(";");
                             div.innerHTML = `<h5>${mess["n"]} (gps)</h5>\n`;
-                            div.innerText += `${coor[0]}N;${coor[1]}E (${Math.round(calDistance(currentgps[lat], currentgps[lon], coor[0], coor[1]))}km from us)`;
+                            div.innerText += `${coor[0]}N;${coor[1]}E \n(${Math.round(calDistance(currentgps[lat], currentgps[lon], coor[0], coor[1]))}km from us)`;
                             break;
                     }
                     document.querySelector("#sent").append(div);
@@ -258,10 +261,15 @@ const char mainpage[] PROGMEM = R"=====(
             var url = "/send";
             xhr.open("POST", url, true);
             xhr.setRequestHeader("Content-Type", "application/json");
+            var ctlCB = document.querySelector("#ctl");
             // encrypt
             if (encCB.checked) {
                 text = crypt(pass, text);
-                var data = JSON.stringify({"m": text, "n": name, "t": "me"});
+                if (ctlCB.checked) {
+                    var data = JSON.stringify({"m": text, "n": name, "t": "ce"});
+                } else {
+                    var data = JSON.stringify({"m": text, "n": name, "t": "me"});
+                }
             }
             else {
                 var data = JSON.stringify({"m": text, "n": name, "t": "m!"});
