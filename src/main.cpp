@@ -4,17 +4,15 @@
 #include <Arduino.h>
 #include "LoRa_E32.h"
 #include <bits/stdc++.h>
-#include <NMEAGPS.h>
 #include <HardwareSerial.h>
 
 #include "index.h"
 
-// setting up lora 
+// setting up lora device
 LoRa_E32 e32ttl100(&Serial2, 15, 19, 21);
 
-// setting up gps
+// setting up serial
 HardwareSerial myserial(1);
-NMEAGPS gps;
 
 // 10sec interval
 unsigned long msbefore = 0;
@@ -31,7 +29,6 @@ std::vector<String> messagein;
 
 // relaying
 std::set<String> relayedmessage;
-bool enableRelay = false;
 
 // duplication test
 bool isDuplicated(String str) {
@@ -39,18 +36,6 @@ bool isDuplicated(String str) {
     relayedmessage.insert(str);
     if (before == relayedmessage.size()) return false;
     else return true;
-}
-
-// GPS
-// current gps info
-DynamicJsonDocument currentGPSinfo(1024);
-// handling gps request 
-void handleGPS() {
-  Serial.println("GPS request!");
-  String uwu1;
-  DynamicJsonDocument gpsinfo = currentGPSinfo;
-  serializeJson(gpsinfo, uwu1);
-  server.send(200, "application/json", uwu1);
 }
 
 // "compress/decompress" message
@@ -78,31 +63,6 @@ DynamicJsonDocument decode(String str) {
   return doc;
 }
 
-String encode(DynamicJsonDocument doc) {
-  String name, contentstr, temptype, type, isEncrypted;
-  name = doc["n"].as<String>();
-  contentstr = doc["m"].as<String>();
-  temptype = doc["t"].as<String>();
-  type = temptype[0]; isEncrypted = temptype[1];
-  return (name + "|" + contentstr + "|" + temptype);
-}
-
-// lora comm
-void sendviaLora(String data, bool isEncoded) {
-  String encodedmessage = data;
-  if (!isEncoded) {
-    DynamicJsonDocument doc(1024);
-    deserializeJson(doc, data);
-    encodedmessage = encode(doc);
-  }
-  // for not duplicating itself
-  relayedmessage.insert(encodedmessage);
-  ResponseStatus rs = e32ttl100.sendMessage(encodedmessage); 
-  Serial.print("Sent via LoRa message (status): ");
-  Serial.print(encodedmessage);
-  Serial.println(rs.getResponseDescription());
-}
-
 // handle incoming message from lora module
 int handleMessageIn() {
   ResponseContainer rc = e32ttl100.receiveMessage();
@@ -113,10 +73,6 @@ int handleMessageIn() {
     if (rc.data != "ping" || rc.data != "null|null|null") {
       // check whether the message has been received or not
       if (isDuplicated(rc.data)) {
-        if (enableRelay) {
-          // relaying message
-          sendviaLora(rc.data, true);
-        }
         // continue like normal
         messagein.push_back(rc.data);
         Serial.println(rc.data);
@@ -127,14 +83,6 @@ int handleMessageIn() {
     }
   }
   return 1;
-}
-
-// sending message
-void handleMessageOut(String json) {
-    json.trim();
-    Serial.print("Received message: ");
-    Serial.println(json);
-    sendviaLora(json, false);
 }
 
 // updating new message
@@ -156,11 +104,13 @@ void handleUpdate() {
     outgoingjson["t"] = (messjson["type"].as<String>());
     outgoingjson["e"] = (messjson["encrypted"].as<String>());
   }
-  // convert json to string
-  String uwu;
-  serializeJson(outgoingjson, uwu);
-  // sent
-  server.send(200, "application/json", uwu );
+  if (outgoingjson["t"] == "c") {
+    // convert json to string
+    String uwu;
+    serializeJson(outgoingjson, uwu);
+    // sent
+    server.send(200, "application/json", uwu );
+  }
 }
 
 // return homepage to client
@@ -169,9 +119,20 @@ void handleMain() {
   server.send(200, "text/html", s);
 }
 
+// handle control commands
+void handleControl(String json) {
+    DynamicJsonDocument command(1024);
+    json.trim();
+    Serial.print("Sending decoded command to device: ");
+    deserializeJson(command, json);
+    String commandstr = (command["c"].as<String>());
+    Serial.println(commandstr);
+    myserial.println(commandstr);
+}
+
 void setup() {
   // redefine serial 1
-  myserial.begin(9600, SERIAL_8N1, 22, 23);
+  myserial.begin(9600, SERIAL_8N1, 22, 23); // rx 22 tx 23
   //  WiFi setup (ap mode)
   Serial.print("Enabling SoftAP...");
   Serial.println(WiFi.softAP(ap, pass));
@@ -188,19 +149,11 @@ void setup() {
   Serial.println(rs.getResponseDescription());
   // startup local sv
   server.on("/", handleMain);
-  // handle incomming packet
-  server.on("/send", HTTP_POST, []() {
-      handleMessageOut(server.arg("plain"));
-  });
   // handle outgoing packet
   server.on("/update", handleUpdate);
-  // handle gps request
-  server.on("/gps", handleGPS);
-  // handle enable/disable relay
-  server.on("/relay", []() {
-    StaticJsonDocument<100> state;
-    deserializeJson(state, server.arg("plain"));
-    enableRelay = (state["relay"].as<String>() == "1") ? true : false;
+  // handle decoded command
+  server.on("/control", HTTP_POST, []() {
+    handleControl(server.arg("plain"));
   });
   server.begin();
 }
@@ -213,13 +166,6 @@ void loop() {
   if (e32ttl100.available()>1) {
     Serial.println("Incoming lora message!");
     handleMessageIn();
-  } 
-  if (gps.available(myserial)) {
-    gps_fix fix = gps.read();
-    currentGPSinfo["lat"] = fix.latitude();
-    currentGPSinfo["long"] = fix.longitude();
-    currentGPSinfo["sat"] = fix.satellites;
-    currentGPSinfo["time"] = fix.dateTime_ms();
   }
   // handle interval
   if (millis() - msbefore >= 10000) {
@@ -228,5 +174,6 @@ void loop() {
     // update new "before point"
     msbefore = millis();
   }
+  // idk
   delay(1);
 }
