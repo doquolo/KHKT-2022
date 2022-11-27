@@ -25,20 +25,6 @@ const char mainpage[] PROGMEM = R"=====(
             flex-direction: column;
             white-space: pre-line;
         }
-        .typer {
-            position: absolute;
-            margin: 0rem 10rem 1rem 10rem;
-            bottom: 1.5rem;
-            width: calc(100% - 17.25rem);
-        }
-        .input {
-            width: calc(100% - 6.75rem);
-            border: 1px solid black;
-        }
-        .submit {
-            border: 1px solid #000;
-            border-left: none;
-        }
         .message-container > div {
             padding: 0.5rem;
             border-radius: 0.45rem;
@@ -46,9 +32,6 @@ const char mainpage[] PROGMEM = R"=====(
             max-width: calc(100% / 2);
             border: 1px solid black;
             margin-bottom: 1rem;
-        }
-        .message-container > .sent {
-            margin-left: auto;
         }
         .message-container > .received {
             margin-right: auto;
@@ -96,110 +79,37 @@ const char mainpage[] PROGMEM = R"=====(
 </head>
 <body>
     <div class="h1">
-        <h1 style="margin-bottom: 0rem;">ESP softAP</h1><br/>
+        <h1 style="margin-bottom: 0rem;">Control Panel</h1><br/>
     </div>
     <div id="sent" class="message-container"></div>
-    <div class="typer">
-        <div>
-            <input type="checkbox" id="enc" name="encrypt"><label for="encrypt">Encrypted?</label></input><br>
-            <input type="checkbox" id="rly" name="relay"><label for="relay">Enable relaying?</label></input>
-        </div>
-        <div class="tab">
-            <button class="tablink" id="message" onclick="showMessbox()">Message</button>
-            <button class="tablink" id="gps" onclick="showGPSbox()">GPS</button>
-        </div>
-        <form id="form" onsubmit="return false;" class="message">
-            <input type="text" id="inp" class="input"><input type="submit" class="submit" value="Send">
-        </form>
-        <div class="gps" style="display:none">
-            <h5>Current GPS coordinate: <p id="gpsloc"></p> </h5>
-            <button id="acquiregps" onclick="acquireGPS()">Acquire</button>
-            <button id="sendgps" onclick="sendGPS()">Send</button>
-        </div>
     </div>
     <script>
-        const rlyCB =  document.querySelector('#rly');
-        rlyCB.addEventListener('click', () => {
-            // sending json
-            var xhr = new XMLHttpRequest();
-            var url = "/relay";
-            xhr.open("POST", url, true);
-            xhr.setRequestHeader("Content-Type", "application/json");
-            const data = JSON.stringify({"relay": (rlyCB.checked) ? "1" : "0"});
-            xhr.send(data);
-        });
-    </script> 
-    <script>
-        var pass;
-        const encCB = document.querySelector('#enc');
-        encCB.addEventListener('click', () => {
-            if (encCB.checked) {
-                var encpass = prompt("Enter encryption password: ");
-                pass = encpass;
-            }
-        });
-    </script>
-    <script>
-        const showMessbox = () => {
-            document.querySelector("div.gps").style.display = "none";
-            document.querySelector("form.message").style.display = "block";
-        }
-        const showGPSbox = () => {
-            document.querySelector("div.gps").style.display = "block";
-            document.querySelector("form.message").style.display = "none";
-        }
-    </script>
-    <script>
-        var name = prompt("Enter username");
+        var name = prompt("Enter device name");
         while (name == null || name == "") {
-            name = prompt("Enter username before chatting!", "");
+            name = prompt("Enter device name!", "");
         }
+        var encpass = prompt("Enter encryption password: ");
+        pass = encpass;
         var divh1 = document.querySelector("div.h1");
         const divname = document.createElement("div");
-        divname.innerHTML = `Chatting as <b>${name}</b>`;
+        divname.innerHTML = `Hi <b>${name}</b>`;
         divh1.append(divname);  
     </script>
     <script>
-        var currentgps;
-        function calDistance(x1, y1, x2, y2) {
-            return (Math.acos(Math.cos(x2-x1) - Math.cos(x1)*Math.cos(x2) + Math.cos(x1)*Math.cos(x2)*Math.cos(y2-y1)) * 6371);
-        }
-        const acquireGPS = () => {
-            var xhr = new XMLHttpRequest();
-            xhr.onreadystatechange = () => {
-                if (xhr.readyState == XMLHttpRequest.DONE) {
-                    try {
-                        var gps = JSON.parse(xhr.responseText);
-                    }
-                    catch (err) {
-                        return true;
-                    }
-                    currentgps = {lat:gps["lat"], long:gps["long"], sat:gps["sat"], time:gps["time"]};
-                    document.querySelector("#gpsloc").innerText = `Latitude: ${currentgps["lat"]}N; Longitude: ${currentgps["long"]}E`;
-                }   
-            } 
-            xhr.open('GET', "/gps", true);
-            xhr.send(null);
-        }
-        const sendGPS = () => {
-            var xhr = new XMLHttpRequest();
-            var url = "/send";
-            xhr.open("POST", url, true);
-            xhr.setRequestHeader("Content-Type", "application/json");
-            var content = `${currentgps["lat"]};${currentgps["long"]}`;
-            // encrypt
-            if (encCB.checked) {
-                content = crypt(pass, content);
-                var data = JSON.stringify({"m": content, "n": name, "t": "ge"});
-            }
-            else {
-                var data = JSON.stringify({"m": content, "n": name, "t": "g!"});
-            }
-            xhr.send(data);
-        }
-    </script>
-    <script>
+        const cmd = [];
         var temp;
+        const handlecmd = (b) => {
+            cmd.push(b);
+        }
+        const sendback = (a) => {
+            if (cmd.length == 0) return 0;
+            var xhr1 = new XMLHttpRequest();
+            var url1 = "/control";
+            xhr1.open("POST", url1, true);
+            xhr1.setRequestHeader("Content-Type", "application/json");
+            var data1 = JSON.stringify({"c": cmd.pop()});
+            xhr1.send(data1);
+        }
         const updateMessage = () => {
             var xhr = new XMLHttpRequest();
             xhr.onreadystatechange = () => {
@@ -220,54 +130,22 @@ const char mainpage[] PROGMEM = R"=====(
                     if (mess["e"] == "e") {
                         mess["m"] = decrypt(pass, mess["m"]);
                     }
-                    // classify
-                    switch (mess["t"]) {
-                        case "m":
-                            div.innerHTML = `<h5>${mess["n"]} (message)</h5>\n`;
-                            div.innerText += mess["m"];
-                            break;
-                        case "g":
-                            // gps coor form: latN;longE Ex: 12,05N;127,30E
-                            var coor = mess["m"].split(";");
-                            div.innerHTML = `<h5>${mess["n"]} (gps)</h5>\n`;
-                            div.innerText += `${coor[0]}N;${coor[1]}E (${Math.round(calDistance(currentgps[lat], currentgps[lon], coor[0], coor[1]))}km from us)`;
-                            break;
-                    }
+                    if (mess["t"] == "c") {
+                        div.innerHTML = `<h5>${mess["n"]} (command)</h5>\n`;
+                        div.innerText += mess["m"];
+                        // sending back decrypted message
+                        handlecmd(mess["m"]);
+                       }
                     document.querySelector("#sent").append(div);
                 }
             } 
             xhr.open('GET', "/update", true);
             xhr.send(null);
         }
-        setInterval(updateMessage, 500);
-    </script>
-    <script>
-        const form = document.querySelector('#form');
-        form.addEventListener("submit", ()=>{
-            var text = document.querySelector("#inp").value;
-            console.log(text);
-            if (text.length >= 50) {alert("Content must be less than 50 characters!");return false;}
-            if (text == "") {alert("Content Empty!");return false;}
-            document.querySelector("#inp").value = "";
-            const div = document.createElement("div");
-            div.innerText = text;
-            div.className = "sent";
-            document.querySelector("#sent").append(div);
-            // sending json
-            var xhr = new XMLHttpRequest();
-            var url = "/send";
-            xhr.open("POST", url, true);
-            xhr.setRequestHeader("Content-Type", "application/json");
-            // encrypt
-            if (encCB.checked) {
-                text = crypt(pass, text);
-                var data = JSON.stringify({"m": text, "n": name, "t": "me"});
-            }
-            else {
-                var data = JSON.stringify({"m": text, "n": name, "t": "m!"});
-            }
-            xhr.send(data);
-        });
+        const update = setInterval(function () {
+            updateMessage();
+            sendback();
+        }, 500);
     </script>
 </body>
 </html>
