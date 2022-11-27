@@ -9,7 +9,7 @@
 
 #include "index.h"
 
-// setting up lora 
+// setting up lora device
 LoRa_E32 e32ttl100(&Serial2, 15, 19, 21);
 
 // setting up gps
@@ -20,8 +20,8 @@ NMEAGPS gps;
 unsigned long msbefore = 0;
 
 // ap credential
-const char* ap = "device1";
-const char* pass = "matkhau1";
+const char* ap = "device2";
+const char* pass = "idkwhattosay";
 
 
 ESP32WebServer server(80);
@@ -171,7 +171,7 @@ void handleMain() {
 
 void setup() {
   // redefine serial 1
-  myserial.begin(9600, SERIAL_8N1, 22, 23);
+  myserial.begin(9600, SERIAL_8N1, 23, 22);
   //  WiFi setup (ap mode)
   Serial.print("Enabling SoftAP...");
   Serial.println(WiFi.softAP(ap, pass));
@@ -220,6 +220,15 @@ void loop() {
     currentGPSinfo["long"] = fix.longitude();
     currentGPSinfo["sat"] = fix.satellites;
     currentGPSinfo["time"] = fix.dateTime_ms();
+    Serial.print(fix.status);
+    Serial.print("-");
+    Serial.print(fix.latitude());
+    Serial.print("-");
+    Serial.print(fix.longitude());
+    Serial.print("-");
+    Serial.print(fix.satellites);
+    Serial.print("-");
+    Serial.println(fix.dateTime_ms());
   }
   // handle interval
   if (millis() - msbefore >= 10000) {
@@ -228,5 +237,6 @@ void loop() {
     // update new "before point"
     msbefore = millis();
   }
+  // idk
   delay(1);
 }
