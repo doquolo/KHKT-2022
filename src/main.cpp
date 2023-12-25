@@ -171,7 +171,7 @@ void handleMain() {
 
 void setup() {
   // redefine serial 1
-  myserial.begin(9600, SERIAL_8N1, 23, 22);
+  myserial.begin(9600, SERIAL_8N1, 23, 22); // RX 23 TX 22
   //  WiFi setup (ap mode)
   Serial.print("Enabling SoftAP...");
   Serial.println(WiFi.softAP(ap, pass));
